@@ -1,5 +1,7 @@
 const fs = require('fs')
 const Book = require('../models/Book')
+const sortingBooks = require('../utils/sorting-books')
+const averageRatingHandler = require('../utils/averageRating-handler')
 
 exports.getAllBooks = (req, res) => {
     Book.find()
@@ -18,16 +20,8 @@ exports.getOneBook = (req, res) => {
 exports.getBestRatingBooks = (req, res) => {
     Book.find()
         .then((books) => {
-            if (books.length > 3) {
-                const sortedBooks = books.sort((a, b) => {
-                    return a.averageRating - b.averageRating
-                })
-                const filteredBooks = sortedBooks.filter((el, idx) => idx <= 2)
-                console.log(filteredBooks)
-                res.status(200).json(filteredBooks)
-            } else {
-                res.status(200).json(books)
-            }
+            const bestRatingBooks = sortingBooks(books)
+            res.status(200).json(bestRatingBooks)
         })
         .catch((error) => res.status(400).json({ error }))
 }
@@ -55,45 +49,51 @@ exports.addBook = (req, res) => {
 exports.addFeedback = (req, res) => {
     Book.findOne({ _id: req.params.id })
         .then((book) => {
-            console.log(book)
-            console.log(req.params)
-            console.log(req.body)
             const userFeedbacks = book.ratings.filter(
-                (el) => el.userId === req.params.id
+                (el) => el.userId === req.body.userId
             )
-            if (userFeedbacks.length !== 0) {
-                console.log(1)
-                res.status(401).json({
-                    message: 'You have already added a feedback.',
-                })
+            console.log(req.auth.userId, req.body.userId, req.params.id)
+            if (
+                userFeedbacks.length !== 0 ||
+                req.body.rating > 5 ||
+                req.body.rating < 0
+            ) {
+                res.status(401).json(book)
             } else {
-                console.log(2)
-                const newRatings = [
-                    ...book.ratings,
-                    { userId: req.params.id, grade: req.body.rating },
-                ]
-                const newAverageRating =
-                    (book.ratings.reduce((acc, el) => acc + el.grade, 0) +
-                        req.body.rating) /
-                    (book.ratings.length + 1)
-                const filename = book.imageUrl.split('/images/')[1]
-                console.log(newRatings, newAverageRating, filename)
+                const newAverageRating = averageRatingHandler(
+                    book.ratings,
+                    req.body.rating
+                )
                 Book.updateOne(
                     { _id: req.params.id },
                     {
-                        ...book,
-                        _id: req.params.id,
-                        ratings: newRatings,
-                        averageRating: newAverageRating,
+                        $push: {
+                            ratings: {
+                                userId: req.body.userId,
+                                grade: req.body.rating,
+                            },
+                        },
+                        $set: {
+                            averageRating: newAverageRating,
+                        },
                     }
                 )
-                    .then((res) => {
-                        console.log(res)
+                    .then(() => {
+                        Book.findOne({ _id: req.params.id })
+                            .then((updatedBook) => {
+                                res.status(200).json(updatedBook)
+                            })
+                            .catch((error) => res.status(500).json({ error }))
                     })
-                    .catch((error) => res.status(500).json({ error }))
+                    .catch((error) => {
+                        res.status(500).json({ error })
+                    })
             }
         })
-        .catch((error) => res.status(404).json({ error }))
+        .catch((error) => {
+            console.log(error)
+            res.status(404).json({ error })
+        })
 }
 
 exports.modifyBook = (req, res) => {
