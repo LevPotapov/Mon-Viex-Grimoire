@@ -1,7 +1,7 @@
+require('dotenv').config({ path: '.env' })
 const bcrypt = require('bcrypt')
 const jwt = require('jsonwebtoken')
 const User = require('../models/User')
-const dotenv = require('dotenv')
 
 exports.signup = (req, res) => {
     bcrypt
@@ -38,12 +38,15 @@ exports.login = (req, res) => {
                             .status(401)
                             .json({ message: 'Invalid username or password.' })
                     }
-                    const JWT_PASSWORD = dotenv.config().parsed.JWT_PASSWORD
                     res.status(200).json({
                         userId: user._id,
-                        token: jwt.sign({ userId: user._id }, JWT_PASSWORD, {
-                            expiresIn: '24h',
-                        }),
+                        token: jwt.sign(
+                            { userId: user._id },
+                            process.env.JWT_PASSWORD,
+                            {
+                                expiresIn: '24h',
+                            }
+                        ),
                     })
                 })
                 .catch((error) => res.status(500).json({ error }))

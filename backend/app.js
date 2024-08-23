@@ -1,18 +1,13 @@
-const dotenv = require('dotenv')
+require('dotenv').config({ path: '.env' })
 const express = require('express')
-const mongoose = require('mongoose')
 const path = require('path')
-const authRoutes = require('../routes/auth')
-const booksRoutes = require('../routes/books')
+const connectingToMongoDB = require('./connections/connecting-to-mongodb')
+const authRoutes = require('./routes/auth')
+const booksRoutes = require('./routes/books')
 
 const app = express()
 
-const MONGODB_KEY = dotenv.config().parsed.MONGODB_KEY
-
-mongoose
-    .connect(MONGODB_KEY)
-    .then(() => console.log('Successful connection to MongoDB !'))
-    .catch(() => console.log('Connection to MongoDB failed !'))
+connectingToMongoDB(process.env.MONGODB_KEY)
 
 app.use(express.json())
 
